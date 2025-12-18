@@ -2,6 +2,10 @@
 Payment Entry Tax Calculations
 Calculate and update tax amounts in Payment Entry taxes table
 
+Uses unified structure:
+- Payment Deductions Accounts: For tax account names (get_tax_account)
+- Stamp Tax Calculation Rules: For tax calculation percentages/ranges (get_stamp_tax_rule)
+
 Structure:
 1. Tax Calculation Functions (for taxes table)
 2. Tax Calculation Functions (for API)
@@ -14,7 +18,10 @@ Structure:
 import frappe
 from frappe import _
 from frappe.utils import flt
-from payment_taxes_deductions.payment_taxes_deductions.doctype.payment_deductions_accounts.payment_deductions_accounts import get_tax_account
+from payment_taxes_deductions.payment_taxes_deductions.doctype.payment_deductions_accounts.payment_deductions_accounts import (
+    get_tax_account,
+    get_stamp_tax_rule
+)
 
 
 # ============================================================================
@@ -22,7 +29,7 @@ from payment_taxes_deductions.payment_taxes_deductions.doctype.payment_deduction
 # ============================================================================
 # Functions that update existing tax rows in the taxes table
 
-def calculate_commercial_profits_tax(taxes, total, company=None):
+def calculate_commercial_profits_tax(taxes, total, company=None, customer_group=None):
     """
     Calculate commercial profits tax (ارباح تجارية)
     Tax rate: 1% if total > 300
@@ -31,8 +38,10 @@ def calculate_commercial_profits_tax(taxes, total, company=None):
         taxes: Payment Entry taxes table
         total: Paid amount
         company: Company name
+        customer_group: Customer Group name (optional, for filtering accounts)
     """
-    commercial_profits_account = get_tax_account("commercial_profits", company)
+    commercial_profits_account = get_tax_account(
+        "commercial_profits", company, customer_group)
     if not commercial_profits_account:
         return
 
@@ -41,37 +50,37 @@ def calculate_commercial_profits_tax(taxes, total, company=None):
             tax.tax_amount = total * 0.01
 
 
-def calculate_regular_stamp_tax(taxes, total, company=None):
+def calculate_regular_stamp_tax(taxes, total, company=None, customer_group=None):
     """
-    Calculate regular stamp tax (دمغة عادية) based on total amount ranges
-    Formula: ((total - 50) * percentage) / 4
+    Calculate regular stamp tax (دمغة عادية) based on rules from Stamp Tax Calculation Rules DocType
+    Formula: ((total - subtract_amount) * percentage / 100 + add_amount) / 4
 
     Args:
         taxes: Payment Entry taxes table
         total: Paid amount
         company: Company name
+        customer_group: Customer Group name (optional, for filtering accounts)
     """
-    regular_stamp_account = get_tax_account("regular_stamp", company)
+    regular_stamp_account = get_tax_account(
+        "regular_stamp", company, customer_group)
     if not regular_stamp_account:
         return
 
-    regular_stamp_amount = 0
+    # Get rule from DocType
+    rule = get_stamp_tax_rule(total, company)
 
-    # Calculate regular stamp based on total range
-    if total in range(1, 51):
-        regular_stamp_amount = 0
-    elif total in range(51, 251):
-        regular_stamp_amount = ((total - 50) * 0.048) / 4
-    elif total in range(251, 501):
-        regular_stamp_amount = ((total - 50) * 0.052) / 4
-    elif total in range(501, 1001):
-        regular_stamp_amount = ((total - 50) * 0.056) / 4
-    elif total in range(1001, 5001):
-        regular_stamp_amount = ((total - 50) * 0.06) / 4
-    elif total in range(5001, 10001):
-        regular_stamp_amount = ((total - 50) * 0.064) / 4
-    elif total > 10000:
-        regular_stamp_amount = ((total - 10050) * 0.024 + 640) / 4
+    if not rule:
+        frappe.throw(
+            _("No stamp tax calculation rule found for company {0} and amount {1}. Please configure Stamp Tax Calculation Rules.").format(
+                company or _("Unknown"), total
+            )
+        )
+
+    # Use rule from DocType
+    regular_stamp_amount = (
+        (total - rule["subtract_amount"]) * rule["percentage"] / 100
+        + rule["add_amount"]
+    ) / 4
 
     # Update regular stamp tax amount
     for tax in taxes:
@@ -79,45 +88,97 @@ def calculate_regular_stamp_tax(taxes, total, company=None):
             tax.tax_amount = regular_stamp_amount
 
 
-def calculate_additional_stamp_tax(taxes, total, company=None):
+def calculate_additional_stamp_tax(taxes, total, company=None, customer_group=None):
     """
     Calculate additional stamp tax (دمغة اضافية)
-    Formula: regular_stamp_amount * 3
+    Formula: regular_stamp_amount * multiplier (from rule)
 
     Args:
         taxes: Payment Entry taxes table
         total: Paid amount
         company: Company name
+        customer_group: Customer Group name (optional, for filtering accounts)
     """
-    additional_stamp_account = get_tax_account("additional_stamp", company)
+    additional_stamp_account = get_tax_account(
+        "additional_stamp", company, customer_group)
     if not additional_stamp_account:
         return
 
-    regular_stamp_amount = 0
+    # Get rule from DocType
+    rule = get_stamp_tax_rule(total, company)
 
-    # Calculate regular stamp first (same logic as calculate_regular_stamp_tax)
-    if total in range(1, 51):
-        regular_stamp_amount = 0
-    elif total in range(51, 251):
-        regular_stamp_amount = ((total - 50) * 0.048) / 4
-    elif total in range(251, 501):
-        regular_stamp_amount = ((total - 50) * 0.052) / 4
-    elif total in range(501, 1001):
-        regular_stamp_amount = ((total - 50) * 0.056) / 4
-    elif total in range(1001, 5001):
-        regular_stamp_amount = ((total - 50) * 0.06) / 4
-    elif total in range(5001, 10001):
-        regular_stamp_amount = ((total - 50) * 0.064) / 4
-    elif total > 10000:
-        regular_stamp_amount = ((total - 10050) * 0.024 + 640) / 4
+    if not rule:
+        frappe.throw(
+            _("No stamp tax calculation rule found for company {0} and amount {1}. Please configure Stamp Tax Calculation Rules.").format(
+                company or _("Unknown"), total
+            )
+        )
 
-    # Additional stamp = regular stamp * 3
-    additional_stamp_amount = regular_stamp_amount * 3
+    # Calculate regular stamp using rule from DocType
+    regular_stamp_amount = (
+        (total - rule["subtract_amount"]) * rule["percentage"] / 100
+        + rule["add_amount"]
+    ) / 4
+
+    # Additional stamp = regular stamp * multiplier
+    multiplier = rule["additional_stamp_multiplier"]
+    additional_stamp_amount = regular_stamp_amount * multiplier
 
     # Update additional stamp tax amount
     for tax in taxes:
         if tax.account_head == additional_stamp_account:
             tax.tax_amount = additional_stamp_amount
+
+
+def handle_check_stamp_and_ats_tax(doc, total, company=None, customer_group=None):
+    """
+    Handle check stamp (دمغة شيك) and ATS tax (ضرائب أ ت ص) from rules
+    These are fixed amounts that apply only to specific ranges
+
+    Args:
+        doc: Payment Entry document
+        total: Paid amount
+        company: Company name
+        customer_group: Customer Group name (optional, for filtering accounts)
+    """
+    # Get rule from DocType
+    rule = get_stamp_tax_rule(total, company)
+
+    if not rule:
+        return
+
+    # Initialize taxes table if it doesn't exist
+    if not doc.taxes:
+        doc.taxes = []
+
+    # Handle check stamp
+    if rule.get("check_stamp_amount", 0) > 0:
+        check_stamp_account = get_tax_account(
+            "check_stamp", company, customer_group)
+        if check_stamp_account:
+            # Check if check stamp row already exists
+            found = False
+            for tax in doc.taxes:
+                if tax.account_head == check_stamp_account:
+                    tax.tax_amount = rule["check_stamp_amount"]
+                    found = True
+                    break
+
+            # Add new check stamp row if not found
+            if not found:
+                doc.append("taxes", {
+                    "add_deduct_tax": "Deduct",
+                    "charge_type": "Actual",
+                    "account_head": check_stamp_account,
+                    "tax_amount": rule["check_stamp_amount"],
+                    "description": "دمغة شيك"
+                })
+
+    # Handle ATS tax
+    if rule.get("ats_tax_amount", 0) > 0:
+        # Note: You may need to add ATS tax account to Payment Deductions Accounts
+        # For now, we'll skip this or you can add it manually
+        pass
 
 
 # ============================================================================
@@ -141,54 +202,91 @@ def calculate_commercial_profits(total):
     return 0
 
 
-def calculate_regular_stamp(total):
+def calculate_regular_stamp(total, company=None):
     """
-    Calculate regular stamp tax (الدمغة العادية) based on total amount ranges
-    Formula: ((total - 50) * percentage) / 4
+    Calculate regular stamp tax (الدمغة العادية) based on rules from Stamp Tax Calculation Rules DocType
+    Formula: ((total - subtract_amount) * percentage / 100 + add_amount) / 4
 
     Args:
         total: Paid amount
+        company: Company name (optional, uses default company if not provided)
 
     Returns:
         float: Regular stamp tax amount
     """
-    if total in range(1, 51):
-        return 0
-    elif total in range(51, 251):
-        return ((total - 50) * 0.048) / 4
-    elif total in range(251, 501):
-        return ((total - 50) * 0.052) / 4
-    elif total in range(501, 1001):
-        return ((total - 50) * 0.056) / 4
-    elif total in range(1001, 5001):
-        return ((total - 50) * 0.06) / 4
-    elif total in range(5001, 10001):
-        return ((total - 50) * 0.064) / 4
-    elif total > 10000:
-        return ((total - 10050) * 0.024 + 640) / 4
-    return 0
+    # Get company if not provided
+    if not company:
+        company = frappe.defaults.get_global_default("company")
+
+    if not company:
+        frappe.throw(_("Company is required to calculate stamp tax"))
+
+    # Get rule from DocType
+    rule = get_stamp_tax_rule(total, company)
+
+    if not rule:
+        frappe.throw(
+            _("No stamp tax calculation rule found for company {0} and amount {1}. Please configure Stamp Tax Calculation Rules.").format(
+                company, total
+            )
+        )
+
+    # Use rule from DocType
+    regular_stamp_amount = (
+        (total - rule["subtract_amount"]) * rule["percentage"] / 100
+        + rule["add_amount"]
+    ) / 4
+
+    return regular_stamp_amount
 
 
-def calculate_additional_stamp(total):
+def calculate_additional_stamp(total, company=None):
     """
-    Calculate additional stamp tax (الدمغة التدريجية)
-    Formula: regular_stamp_amount * 3
+    Calculate additional stamp tax (الدمغة التدريجية) based on rules from Stamp Tax Calculation Rules DocType
+    Formula: regular_stamp_amount * multiplier (from rule)
 
     Args:
         total: Paid amount
+        company: Company name (optional, uses default company if not provided)
 
     Returns:
         float: Additional stamp tax amount
     """
-    regular_stamp = calculate_regular_stamp(total)
-    return regular_stamp * 3
+    # Get company if not provided
+    if not company:
+        company = frappe.defaults.get_global_default("company")
+
+    if not company:
+        frappe.throw(_("Company is required to calculate stamp tax"))
+
+    # Get rule from DocType
+    rule = get_stamp_tax_rule(total, company)
+
+    if not rule:
+        frappe.throw(
+            _("No stamp tax calculation rule found for company {0} and amount {1}. Please configure Stamp Tax Calculation Rules.").format(
+                company, total
+            )
+        )
+
+    # Calculate regular stamp using rule from DocType
+    regular_stamp_amount = (
+        (total - rule["subtract_amount"]) * rule["percentage"] / 100
+        + rule["add_amount"]
+    ) / 4
+
+    # Additional stamp = regular stamp * multiplier
+    multiplier = rule["additional_stamp_multiplier"]
+    additional_stamp_amount = regular_stamp_amount * multiplier
+
+    return additional_stamp_amount
 
 
 # ============================================================================
 # SECTION 3: CONTRACT STAMP HANDLING
 # ============================================================================
 
-def handle_contract_stamp(doc, company=None):
+def handle_contract_stamp(doc, company=None, customer_group=None):
     """
     Handle contract stamp (دمغة عقد) tax row
     Adds or updates contract stamp row based on contract_papers_qty
@@ -197,8 +295,10 @@ def handle_contract_stamp(doc, company=None):
     Args:
         doc: Payment Entry document
         company: Company name
+        customer_group: Customer Group name (optional, for filtering accounts)
     """
-    contract_account = get_tax_account("contract_stamp", company)
+    contract_account = get_tax_account(
+        "contract_stamp", company, customer_group)
     if not contract_account:
         return
 
@@ -236,7 +336,7 @@ def handle_contract_stamp(doc, company=None):
 # SECTION 4: VAT 20% HANDLING
 # ============================================================================
 
-def handle_vat_20_percent(doc, company=None):
+def handle_vat_20_percent(doc, company=None, customer_group=None):
     """
     Add VAT 20% tax row if Sales Invoice has VAT tax
     Formula: tax_inv.tax_amount * 0.20
@@ -244,9 +344,10 @@ def handle_vat_20_percent(doc, company=None):
     Args:
         doc: Payment Entry document
         company: Company name
+        customer_group: Customer Group name (optional, for filtering accounts)
     """
-    vat_20_account = get_tax_account("vat_20_percent", company)
-    vat_tax_account = get_tax_account("vat_tax", company)
+    vat_20_account = get_tax_account("vat_20_percent", company, customer_group)
+    vat_tax_account = get_tax_account("vat_tax", company, customer_group)
 
     if not vat_20_account or not vat_tax_account:
         return
@@ -298,8 +399,11 @@ def before_validate(doc, method=None):
     # Get company from Payment Entry
     company = doc.company or frappe.defaults.get_global_default("company")
 
+    # Get customer_group from custom field (for filtering accounts)
+    customer_group = getattr(doc, "custom_customer_group", None)
+
     # Handle contract stamp first (works even if taxes table is empty)
-    handle_contract_stamp(doc, company)
+    handle_contract_stamp(doc, company, customer_group)
 
     # Initialize taxes table if it doesn't exist
     if not doc.taxes:
@@ -308,16 +412,19 @@ def before_validate(doc, method=None):
     total = flt(doc.paid_amount or 0)
 
     # Calculate commercial profits tax
-    calculate_commercial_profits_tax(doc.taxes, total, company)
+    calculate_commercial_profits_tax(doc.taxes, total, company, customer_group)
 
     # Calculate regular stamp tax
-    calculate_regular_stamp_tax(doc.taxes, total, company)
+    calculate_regular_stamp_tax(doc.taxes, total, company, customer_group)
 
     # Calculate additional stamp tax
-    calculate_additional_stamp_tax(doc.taxes, total, company)
+    calculate_additional_stamp_tax(doc.taxes, total, company, customer_group)
+
+    # Handle check stamp and ATS tax from rules
+    handle_check_stamp_and_ats_tax(doc, total, company, customer_group)
 
     # Handle VAT 20%
-    handle_vat_20_percent(doc, company)
+    handle_vat_20_percent(doc, company, customer_group)
 
 
 # ============================================================================
@@ -325,13 +432,15 @@ def before_validate(doc, method=None):
 # ============================================================================
 
 @frappe.whitelist()
-def test(total):
+def test(total, company=None, customer_group=None):
     """
     API method to calculate tax amounts for Payment Entry
-    Called by client script when "حساب الضرائب والدمغات" button is clicked
+    Called by client script when "Calculate Taxes and Stamps" button is clicked
 
     Args:
         total: Paid amount (from frappe.form_dict)
+        company: Company name (optional, uses default company if not provided)
+        customer_group: Customer Group name (optional, used for filtering accounts)
 
     Returns:
         list: List with dictionary containing calculated tax amounts
@@ -340,10 +449,19 @@ def test(total):
         # Convert total to float
         total = flt(total or 0)
 
-        # Calculate tax amounts
+        # Get company if not provided
+        if not company:
+            company = frappe.defaults.get_global_default("company")
+
+        if not company:
+            frappe.throw(_("Company is required"))
+
+        # Calculate tax amounts using rules from DocType
+        # Note: customer_group is not used for stamp tax rules (Stamp Tax Calculation Rules only has company)
+        # customer_group is only used for filtering accounts (Payment Deductions Accounts has company + customer_group)
         atvat = calculate_commercial_profits(total)
-        normal_damgha = calculate_regular_stamp(total)
-        tadregya_damgha = calculate_additional_stamp(total)
+        normal_damgha = calculate_regular_stamp(total, company)
+        tadregya_damgha = calculate_additional_stamp(total, company)
 
         # Return response in expected format
         return [{
@@ -355,3 +473,96 @@ def test(total):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _("Error in test API method"))
         frappe.throw(_("Error calculating taxes: {0}").format(str(e)))
+
+
+@frappe.whitelist()
+def get_deductions_by_customer_group(company=None, customer_group=None, paid_amount=0):
+    """
+    Get deductions for Payment Entry based on company and customer_group
+    Simple calculation: account * percentage * paid_amount
+
+    Args:
+        company: Company name (optional, uses default company if not provided)
+        customer_group: Customer Group name (required)
+        paid_amount: Paid amount to calculate deductions (required)
+
+    Returns:
+        list: List of dictionaries with deduction rows (account, cost_center, amount, description)
+    """
+    try:
+        # Get company if not provided
+        if not company:
+            company = frappe.defaults.get_global_default("company")
+
+        if not company:
+            frappe.throw(_("Company is required"))
+
+        if not customer_group:
+            frappe.throw(_("Customer Group is required"))
+
+        paid_amount = flt(paid_amount or 0)
+        if paid_amount <= 0:
+            frappe.throw(_("Paid amount must be greater than 0"))
+
+        # Get Payment Deductions Accounts document
+        filters = {"company": company, "customer_group": customer_group}
+        settings_name = frappe.db.get_value(
+            "Payment Deductions Accounts", filters, "name")
+
+        if not settings_name:
+            frappe.throw(_("No Payment Deductions Accounts found for company {0} and customer group {1}").format(
+                company, customer_group))
+
+        settings = frappe.get_doc("Payment Deductions Accounts", settings_name)
+
+        # Get company cost center
+        cost_center = frappe.get_cached_value(
+            "Company", company, "cost_center")
+        if not cost_center:
+            frappe.throw(
+                _("Cost Center is not set for company {0}").format(company))
+
+        deductions = []
+
+        # List of all account fields and their percentage field names
+        account_fields = [
+            ("commercial_profits", "commercial_profits_percentage"),
+            ("regular_stamp", "regular_stamp_percentage"),
+            ("additional_stamp", "additional_stamp_percentage"),
+            ("contract_stamp", "contract_stamp_percentage"),
+            ("check_stamp", "check_stamp_percentage"),
+            ("applied_professions_tax", "applied_professions_tax_percentage"),
+            ("medical_professions_tax", "medical_professions_tax_percentage"),
+            ("vat_20_percent", "vat_20_percent_percentage"),
+            ("qaderon_difference", "qaderon_difference_percentage"),
+        ]
+
+        # Loop through all account fields
+        for account_field, percentage_field in account_fields:
+            account = getattr(settings, account_field, None)
+            if account:
+                # Get percentage (default to 0 if not set)
+                percentage = flt(
+                    getattr(settings, percentage_field, None) or 0)
+
+                # Calculate amount: paid_amount * (percentage / 100)
+                amount = paid_amount * \
+                    (percentage / 100) if percentage > 0 else 0
+
+                # Get account name for description (user can edit later)
+                account_name = frappe.db.get_value(
+                    "Account", account, "account_name") or account
+
+                deductions.append({
+                    "account": account,
+                    "cost_center": cost_center,
+                    "amount": amount,
+                    "description": account_name
+                })
+
+        return deductions
+
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), _(
+            "Error getting deductions by customer group"))
+        frappe.throw(_("Error getting deductions: {0}").format(str(e)))
