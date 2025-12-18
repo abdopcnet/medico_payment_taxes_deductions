@@ -478,16 +478,17 @@ def test(total, company=None, customer_group=None):
 @frappe.whitelist()
 def get_deductions_by_customer_group(company=None, customer_group=None, paid_amount=0):
     """
-    Get deductions for Payment Entry based on company and customer_group
+    Get taxes for Payment Entry based on company and customer_group
+    Returns data in Advance Taxes and Charges format (for taxes table)
     Simple calculation: account * percentage * paid_amount
 
     Args:
         company: Company name (optional, uses default company if not provided)
         customer_group: Customer Group name (required)
-        paid_amount: Paid amount to calculate deductions (required)
+        paid_amount: Paid amount to calculate taxes (required)
 
     Returns:
-        list: List of dictionaries with deduction rows (account, cost_center, amount, description)
+        list: List of dictionaries with tax rows (Advance Taxes and Charges format)
     """
     try:
         # Get company if not provided
@@ -510,8 +511,8 @@ def get_deductions_by_customer_group(company=None, customer_group=None, paid_amo
             "Payment Deductions Accounts", filters, "name")
 
         if not settings_name:
-            frappe.throw(_("No Payment Deductions Accounts found for company {0} and customer group {1}").format(
-                company, customer_group))
+            # Return empty list if no settings found (user can configure it)
+            return []
 
         settings = frappe.get_doc("Payment Deductions Accounts", settings_name)
 
@@ -522,23 +523,95 @@ def get_deductions_by_customer_group(company=None, customer_group=None, paid_amo
             frappe.throw(
                 _("Cost Center is not set for company {0}").format(company))
 
-        deductions = []
+        # Get stamp tax calculation rule from Stamp Tax Calculation Rules
+        from payment_taxes_deductions.payment_taxes_deductions.doctype.payment_deductions_accounts.payment_deductions_accounts import (
+            get_stamp_tax_rule
+        )
+        rule = get_stamp_tax_rule(paid_amount, company)
 
-        # List of all account fields and their percentage field names
-        account_fields = [
-            ("commercial_profits", "commercial_profits_percentage"),
-            ("regular_stamp", "regular_stamp_percentage"),
-            ("additional_stamp", "additional_stamp_percentage"),
-            ("contract_stamp", "contract_stamp_percentage"),
-            ("check_stamp", "check_stamp_percentage"),
-            ("applied_professions_tax", "applied_professions_tax_percentage"),
-            ("medical_professions_tax", "medical_professions_tax_percentage"),
-            ("vat_20_percent", "vat_20_percent_percentage"),
-            ("qaderon_difference", "qaderon_difference_percentage"),
+        taxes = []
+
+        # Handle taxes that use Stamp Tax Calculation Rules (complex calculations)
+        if rule:
+            # Regular stamp tax (دمغة عادية)
+            # Formula: ((paid_amount - subtract_amount) * percentage / 100 + add_amount) / 4
+            if settings.regular_stamp:
+                regular_stamp_amount = (
+                    (paid_amount - rule["subtract_amount"]
+                     ) * rule["percentage"] / 100
+                    + rule["add_amount"]
+                ) / 4
+                if regular_stamp_amount > 0:
+                    account_name = frappe.db.get_value(
+                        "Account", settings.regular_stamp, "account_name") or settings.regular_stamp
+                    taxes.append({
+                        "add_deduct_tax": "Deduct",
+                        "charge_type": "Actual",
+                        "account_head": settings.regular_stamp,
+                        "description": account_name,
+                        "cost_center": cost_center,
+                        "tax_amount": regular_stamp_amount,
+                        "rate": 0,
+                    })
+
+            # Additional stamp tax (دمغة اضافية)
+            # Formula: regular_stamp_amount * multiplier
+            if settings.additional_stamp and regular_stamp_amount > 0:
+                multiplier = rule.get("additional_stamp_multiplier", 3)
+                additional_stamp_amount = regular_stamp_amount * multiplier
+                if additional_stamp_amount > 0:
+                    account_name = frappe.db.get_value(
+                        "Account", settings.additional_stamp, "account_name") or settings.additional_stamp
+                    taxes.append({
+                        "add_deduct_tax": "Deduct",
+                        "charge_type": "Actual",
+                        "account_head": settings.additional_stamp,
+                        "description": account_name,
+                        "cost_center": cost_center,
+                        "tax_amount": additional_stamp_amount,
+                        "rate": 0,
+                    })
+
+            # Check stamp (دمغة شيك) - fixed amount from rule
+            if settings.check_stamp and rule.get("check_stamp_amount", 0) > 0:
+                account_name = frappe.db.get_value(
+                    "Account", settings.check_stamp, "account_name") or settings.check_stamp
+                taxes.append({
+                    "add_deduct_tax": "Deduct",
+                    "charge_type": "Actual",
+                    "account_head": settings.check_stamp,
+                    "description": account_name,
+                    "cost_center": cost_center,
+                    "tax_amount": rule["check_stamp_amount"],
+                    "rate": 0,
+                })
+
+            # ATS tax (دمغة المهن التطبيقية) - fixed amount from rule
+            if settings.applied_professions_tax and rule.get("ats_tax_amount", 0) > 0:
+                account_name = frappe.db.get_value(
+                    "Account", settings.applied_professions_tax, "account_name") or settings.applied_professions_tax
+                taxes.append({
+                    "add_deduct_tax": "Deduct",
+                    "charge_type": "Actual",
+                    "account_head": settings.applied_professions_tax,
+                    "description": account_name,
+                    "cost_center": cost_center,
+                    "tax_amount": rule["ats_tax_amount"],
+                    "rate": 0,
+                })
+
+        # Handle taxes that use simple percentage from Payment Deductions Accounts
+        # Note: Database field names use "_percent" suffix (not "_percentage")
+        simple_percentage_fields = [
+            ("commercial_profits", "commercial_profits_percent"),
+            ("contract_stamp", "contract_stamp_percent"),
+            ("medical_professions_tax", "medical_professions_tax_percent"),
+            ("vat_20_percent", "vat_20_percent_percent"),
+            ("qaderon_difference", "qaderon_difference_percent"),
         ]
 
-        # Loop through all account fields
-        for account_field, percentage_field in account_fields:
+        # Loop through simple percentage fields
+        for account_field, percentage_field in simple_percentage_fields:
             account = getattr(settings, account_field, None)
             if account:
                 # Get percentage (default to 0 if not set)
@@ -546,23 +619,29 @@ def get_deductions_by_customer_group(company=None, customer_group=None, paid_amo
                     getattr(settings, percentage_field, None) or 0)
 
                 # Calculate amount: paid_amount * (percentage / 100)
-                amount = paid_amount * \
+                tax_amount = paid_amount * \
                     (percentage / 100) if percentage > 0 else 0
 
-                # Get account name for description (user can edit later)
-                account_name = frappe.db.get_value(
-                    "Account", account, "account_name") or account
+                # Only add if amount > 0 or percentage > 0
+                if tax_amount > 0 or percentage > 0:
+                    # Get account name for description
+                    account_name = frappe.db.get_value(
+                        "Account", account, "account_name") or account
 
-                deductions.append({
-                    "account": account,
-                    "cost_center": cost_center,
-                    "amount": amount,
-                    "description": account_name
-                })
+                    # Return in Advance Taxes and Charges format (for taxes table)
+                    taxes.append({
+                        "add_deduct_tax": "Deduct",
+                        "charge_type": "Actual",
+                        "account_head": account,
+                        "description": account_name,
+                        "cost_center": cost_center,
+                        "tax_amount": tax_amount,
+                        "rate": percentage,
+                    })
 
-        return deductions
+        return taxes
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), _(
-            "Error getting deductions by customer group"))
-        frappe.throw(_("Error getting deductions: {0}").format(str(e)))
+            "Error getting taxes by customer group"))
+        frappe.throw(_("Error getting taxes: {0}").format(str(e)))
