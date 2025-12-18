@@ -1,5 +1,8 @@
 ### Payment Taxes Deductions
 
+![Version](https://img.shields.io/badge/version-18.12.2025-blue)
+
+
 Payment Taxes Deductions
 
 ### Installation
