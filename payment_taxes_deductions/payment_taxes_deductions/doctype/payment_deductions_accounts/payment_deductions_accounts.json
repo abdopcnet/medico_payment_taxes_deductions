@@ -7,7 +7,10 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "customer_group",
+  "column_break_uwvk",
   "company",
+  "section_break_accounts",
   "commercial_profits",
   "regular_stamp",
   "additional_stamp",
@@ -23,9 +26,16 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Company",
    "options": "Company",
+   "reqd": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "section_break_accounts",
+   "fieldtype": "Section Break",
+   "label": "Tax Accounts"
   },
   {
    "fieldname": "commercial_profits",
@@ -86,12 +96,25 @@
    "fieldtype": "Link",
    "label": "qaderon_difference",
    "options": "Account"
+  },
+  {
+   "fieldname": "customer_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer Group",
+   "options": "Customer Group",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_uwvk",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-18 06:01:03.579433",
+ "modified": "2025-12-18 15:05:07.672718",
  "modified_by": "Administrator",
  "module": "Payment Taxes Deductions",
  "name": "Payment Deductions Accounts",
