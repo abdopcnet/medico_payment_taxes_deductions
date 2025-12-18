@@ -91,9 +91,9 @@ def get_tax_accounts(company=None, customer_group=None):
     }
 
 
-def get_tax_account(tax_type, company=None):
+def get_tax_account(tax_type, company=None, customer_group=None):
     """
-    Get tax account name from Payment Deductions Accounts based on company
+    Get tax account name from Payment Deductions Accounts based on company and customer_group
     Returns empty string if not found
 
     This is the unified source for tax account names.
