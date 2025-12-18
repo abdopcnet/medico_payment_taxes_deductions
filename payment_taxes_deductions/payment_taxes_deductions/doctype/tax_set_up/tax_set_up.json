@@ -1,0 +1,42 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-07-28 22:17:56.337432",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "table_yljg"
+ ],
+ "fields": [
+  {
+   "fieldname": "table_yljg",
+   "fieldtype": "Table",
+   "options": "Tax Childs"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-12-18 03:57:27.270332",
+ "modified_by": "Administrator",
+ "module": "Payment Taxes Deductions",
+ "name": "Tax Set-Up",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

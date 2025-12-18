@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2025-12-18 04:35:46.103772",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "commercial_profits",
+  "regular_stamp",
+  "additional_stamp",
+  "contract_stamp",
+  "check_stamp",
+  "applied_professions_tax",
+  "medical_professions_tax",
+  "vat_20_percent",
+  "vat_tax",
+  "qaderon_difference"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "unique": 1
+  },
+  {
+   "fieldname": "commercial_profits",
+   "fieldtype": "Link",
+   "label": "commercial_profits",
+   "options": "Account"
+  },
+  {
+   "fieldname": "regular_stamp",
+   "fieldtype": "Link",
+   "label": "regular_stamp",
+   "options": "Account"
+  },
+  {
+   "fieldname": "additional_stamp",
+   "fieldtype": "Link",
+   "label": "additional_stamp",
+   "options": "Account"
+  },
+  {
+   "fieldname": "contract_stamp",
+   "fieldtype": "Link",
+   "label": "contract_stamp",
+   "options": "Account"
+  },
+  {
+   "fieldname": "check_stamp",
+   "fieldtype": "Link",
+   "label": "check_stamp",
+   "options": "Account"
+  },
+  {
+   "fieldname": "applied_professions_tax",
+   "fieldtype": "Link",
+   "label": "applied_professions_tax",
+   "options": "Account"
+  },
+  {
+   "fieldname": "medical_professions_tax",
+   "fieldtype": "Link",
+   "label": "medical_professions_tax",
+   "options": "Account"
+  },
+  {
+   "fieldname": "vat_20_percent",
+   "fieldtype": "Link",
+   "label": "vat_20_percent",
+   "options": "Account"
+  },
+  {
+   "fieldname": "vat_tax",
+   "fieldtype": "Link",
+   "label": "vat_tax",
+   "options": "Account"
+  },
+  {
+   "fieldname": "qaderon_difference",
+   "fieldtype": "Link",
+   "label": "qaderon_difference",
+   "options": "Account"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-12-18 06:01:03.579433",
+ "modified_by": "Administrator",
+ "module": "Payment Taxes Deductions",
+ "name": "Payment Deductions Accounts",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
