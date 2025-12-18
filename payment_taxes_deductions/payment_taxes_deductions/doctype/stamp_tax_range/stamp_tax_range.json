@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-12-18 10:13:32.202216",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "from_amount",
+  "to_amount",
+  "percentage",
+  "subtract_amount",
+  "add_amount",
+  "check_stamp_amount",
+  "ats_tax_amount",
+  "additional_stamp_multiplier"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "from_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "from_amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "to_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "to_amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "percentage"
+  },
+  {
+   "columns": 1,
+   "fieldname": "subtract_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "subtract_amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "add_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "add_amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "check_stamp_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "check_stamp_amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "ats_tax_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "ats_tax_amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "additional_stamp_multiplier",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "additional_stamp_multiplier"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-12-18 10:30:06.978843",
+ "modified_by": "Administrator",
+ "module": "Payment Taxes Deductions",
+ "name": "Stamp Tax Range",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
