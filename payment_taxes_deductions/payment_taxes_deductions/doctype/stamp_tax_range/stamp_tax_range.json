@@ -21,63 +21,63 @@
    "fieldname": "from_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "from_amount"
+   "label": "\u0645\u0646"
   },
   {
    "columns": 1,
    "fieldname": "to_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "to_amount"
+   "label": "\u0627\u0644\u064a"
   },
   {
    "columns": 1,
    "fieldname": "percentage",
    "fieldtype": "Percent",
    "in_list_view": 1,
-   "label": "percentage"
+   "label": "\u0627\u0644\u0646\u0633\u0628\u0629"
   },
   {
    "columns": 1,
    "fieldname": "subtract_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "subtract_amount"
+   "label": "\u062f\u0645\u063a\u0629 \u0639\u0627\u062f\u064a\u0629"
   },
   {
    "columns": 1,
    "fieldname": "add_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "add_amount"
+   "label": "\u062f\u0645\u063a\u0629 \u0625\u0636\u0627\u0641\u064a\u0629"
   },
   {
    "columns": 1,
    "fieldname": "check_stamp_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "check_stamp_amount"
+   "label": "\u062f\u0645\u063a\u0629 \u0627\u0644\u0634\u064a\u0643"
   },
   {
    "columns": 1,
    "fieldname": "ats_tax_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "ats_tax_amount"
+   "label": "\u062f\u0645\u063a\u0629 \u0627\u0644\u0645\u0647\u0646 \u0627\u0644\u062a\u0637\u0628\u064a\u0642\u064a\u0647"
   },
   {
    "columns": 1,
    "fieldname": "additional_stamp_multiplier",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "additional_stamp_multiplier"
+   "label": "\u0645\u0639\u0627\u0645\u0644 \u0627\u0644\u062f\u0645\u063a\u0629 \u0627\u0644\u0639\u0627\u062f\u064a\u0629"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-12-18 10:30:06.978843",
+ "modified": "2025-12-18 18:07:51.038881",
  "modified_by": "Administrator",
  "module": "Payment Taxes Deductions",
  "name": "Stamp Tax Range",
