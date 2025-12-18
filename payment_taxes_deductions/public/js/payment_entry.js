@@ -68,15 +68,37 @@ frappe.ui.form.on('Payment Entry', {
 	},
 
 	/**
-	 * Add custom buttons for tax calculations and deductions
-	 * Only works for draft documents (docstatus == 0) and Receive payment type
+	 * Update customer group on refresh (for all docstatus)
+	 * Add button for deductions (only for draft documents)
 	 */
 	refresh: function (frm) {
+		// Update customer group on every refresh (regardless of docstatus)
+		if (
+			frm.doc.payment_type === 'Receive' &&
+			frm.doc.party_type === 'Customer' &&
+			frm.doc.party
+		) {
+			frappe.db.get_value('Customer', frm.doc.party, 'customer_group', (r) => {
+				if (r && r.customer_group) {
+					// Only update if different to avoid unnecessary refresh
+					if (frm.doc.custom_customer_group !== r.customer_group) {
+						frm.set_value('custom_customer_group', r.customer_group);
+					}
+				}
+			});
+		} else {
+			// Clear customer group if not Customer Receive
+			if (frm.doc.custom_customer_group) {
+				frm.set_value('custom_customer_group', '');
+			}
+		}
+
+		// Add button only for draft documents
 		// Only show button for draft documents and Receive payment type
 		if (frm.doc.docstatus === 0 && frm.doc.payment_type === 'Receive') {
 			// Add direct orange button to fetch deductions based on customer group
 			frm.page.add_inner_button(
-				__('Download Deductions'),
+				__('Download Stamps Taxes'),
 				function () {
 					// Validate required fields
 					if (!frm.doc.company) {
@@ -96,7 +118,7 @@ frappe.ui.form.on('Payment Entry', {
 						return;
 					}
 
-					// Get deductions from server
+					// Get taxes from server (in Advance Taxes and Charges format)
 					frappe.call({
 						method: 'payment_taxes_deductions.payment_taxes_deductions.payment_entry.get_deductions_by_customer_group',
 						args: {
@@ -106,36 +128,37 @@ frappe.ui.form.on('Payment Entry', {
 						},
 						callback: function (r) {
 							if (r.exc) {
-								frappe.msgprint(__('Error loading deductions: {0}', [r.exc]));
+								frappe.msgprint(__('Error loading taxes: {0}', [r.exc]));
 								return;
 							}
 
 							if (!r.message || r.message.length === 0) {
 								frappe.msgprint(
-									__('No deductions found for this company and customer group'),
+									__('No taxes found for this company and customer group'),
 								);
 								return;
 							}
 
-							// Clear existing deductions table
-							if (frm.doc.deductions && frm.doc.deductions.length > 0) {
-								frm.clear_table('deductions');
-							}
-
-							// Add deduction rows
-							r.message.forEach(function (deduction) {
-								frm.add_child('deductions', {
-									account: deduction.account,
-									cost_center: deduction.cost_center,
-									amount: deduction.amount,
-									description: deduction.description,
+							// Add tax rows to taxes table (Advance Taxes and Charges format)
+							r.message.forEach(function (tax) {
+								frm.add_child('taxes', {
+									add_deduct_tax: tax.add_deduct_tax || 'Deduct',
+									charge_type: tax.charge_type || 'Actual',
+									account_head: tax.account_head,
+									description: tax.description,
+									cost_center: tax.cost_center,
+									tax_amount: tax.tax_amount,
+									rate: tax.rate || 0,
 								});
 							});
 
-							// Refresh deductions table
-							frm.refresh_field('deductions');
+							// Refresh taxes table and apply taxes calculation
+							frm.refresh_field('taxes');
+							if (frm.events.apply_taxes) {
+								frm.events.apply_taxes(frm);
+							}
 							frappe.show_alert({
-								message: __('Deductions loaded successfully'),
+								message: __('Taxes loaded successfully'),
 								indicator: 'green',
 							});
 						},
